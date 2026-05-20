@@ -12,6 +12,17 @@ const DEMO_PASSWORD = 'Demo1234!'  // every seeded account uses this
 async function main() {
   console.log('🌱  Seeding database...')
 
+  // Wipe existing rows first so the seed is deterministic.
+  // Delete in FK-safe order: children before parents.
+  await prisma.message.deleteMany()
+  await prisma.interest.deleteMany()
+  await prisma.negotiation.deleteMany()
+  await prisma.notification.deleteMany()
+  await prisma.pitch.deleteMany()
+  await prisma.file.deleteMany()
+  await prisma.user.deleteMany()
+  console.log('  ✔  Cleared old rows')
+
   const hash = await bcrypt.hash(DEMO_PASSWORD, 10)
 
   // ── 1. Admin ────────────────────────────────────────────────
@@ -197,16 +208,32 @@ async function main() {
   ])
   console.log('  ✔  Pitches:', pitches.map(p => p.title).join('\n              '))
 
-  // ── 5. Interests ─────────────────────────────────────────────
+  // ── 5. Group negotiation room ────────────────────────────────
+  // One Negotiation = the group discussion room for ONE pitch.
+  // Demo: two investors join the SAME room on the AgriLend pitch.
   const [arjun, priya] = investors
 
-  const interest1 = await prisma.interest.upsert({
+  const negotiation = await prisma.negotiation.upsert({
+    where: { pitchId: 'pitch-seed-001' },
+    update: {},
+    create: {
+      id: 'negotiation-seed-001',
+      pitchId: 'pitch-seed-001',
+      startupId: kavya.id,
+      status: 'open',
+    },
+  })
+  console.log('  ✔  Group room seeded for AgriLend (pitch-seed-001)')
+
+  // ── 6. Interests (each = one investor's seat in a room) ──────
+  await prisma.interest.upsert({
     where: { id: 'interest-seed-001' },
     update: {},
     create: {
       id: 'interest-seed-001',
       investorId: arjun.id,
       pitchId: 'pitch-seed-001',
+      negotiationId: negotiation.id,
       proposedAmount: 4500000n,
       proposedEquityPct: 9.0,
       message: 'I have backed 3 fintech startups before. Happy to intro you to NABARD contacts.',
@@ -214,36 +241,36 @@ async function main() {
     },
   })
 
-  const interest2 = await prisma.interest.upsert({
+  await prisma.interest.upsert({
     where: { id: 'interest-seed-002' },
     update: {},
     create: {
       id: 'interest-seed-002',
       investorId: priya.id,
-      pitchId: 'pitch-seed-003',
-      proposedAmount: 3500000n,
-      proposedEquityPct: 10.0,
-      message: 'Love the supply-chain angle. I run a D2C distribution network and can open doors.',
-      status: 'accepted',
-      respondedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      pitchId: 'pitch-seed-001',
+      negotiationId: negotiation.id,
+      proposedAmount: 5000000n,
+      proposedEquityPct: 8.0,
+      message: 'Strong agri-fintech thesis. I can move fast and add distribution muscle.',
+      status: 'pending',
     },
   })
+  console.log('  ✔  Interests seeded — Arjun + Priya both in the AgriLend room')
 
-  console.log('  ✔  Interests seeded')
-
-  // ── 6. Negotiation (for the accepted interest) ────────────────
-  await prisma.negotiation.upsert({
-    where: { interestId: interest2.id },
-    update: {},
-    create: {
-      pitchId: 'pitch-seed-003',
-      investorId: priya.id,
-      startupId: nikhil.id,
-      interestId: interest2.id,
-      status: 'open',
-    },
-  })
-  console.log('  ✔  Negotiation seeded (pitch-seed-003 × Priya)')
+  // ── 7. A few chat messages in the group room ─────────────────
+  const seedMessages = [
+    { id: 'msg-seed-001', senderId: kavya.id,  content: 'Thanks for the interest, both of you! Happy to discuss terms here.' },
+    { id: 'msg-seed-002', senderId: arjun.id,  content: 'Great. My offer is 45L for 9%. Open to talk.' },
+    { id: 'msg-seed-003', senderId: priya.id,  content: 'I can do 50L for 8% and help with distribution.' },
+  ]
+  for (const m of seedMessages) {
+    await prisma.message.upsert({
+      where: { id: m.id },
+      update: {},
+      create: { id: m.id, negotiationId: negotiation.id, senderId: m.senderId, content: m.content },
+    })
+  }
+  console.log('  ✔  Seed chat messages added to the group room')
 
   console.log('\n✅  Seed complete.')
   console.log('   Login with any of these accounts (password: Demo1234!)')

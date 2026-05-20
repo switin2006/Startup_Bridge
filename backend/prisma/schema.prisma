@@ -68,6 +68,7 @@ enum NotificationType {
 
 enum FileScope {
   pitch_deck
+  proof_of_funds
   misc
 }
 
@@ -88,7 +89,7 @@ model User {
   // Relations (a user can appear in many roles across the system)
   pitches        Pitch[]         @relation("StartupPitches")
   interestsSent  Interest[]      @relation("InvestorInterests")
-  negotiationsAsInvestor Negotiation[] @relation("InvestorNegotiations")
+  negotiationsWon        Negotiation[] @relation("AcceptedNegotiations")
   negotiationsAsStartup  Negotiation[] @relation("StartupNegotiations")
   messagesSent   Message[]
   notifications  Notification[]
@@ -130,6 +131,7 @@ model Interest {
   id                 String         @id @default(uuid())
   investorId         String         @map("investor_id")
   pitchId            String         @map("pitch_id")
+  negotiationId      String?        @map("negotiation_id")
   proposedAmount     BigInt         @map("proposed_amount")
   proposedEquityPct  Decimal        @map("proposed_equity_pct") @db.Decimal(5, 2)
   message            String
@@ -138,39 +140,40 @@ model Interest {
   respondedAt        DateTime?      @map("responded_at")
 
   // Relations
-  investor     User          @relation("InvestorInterests", fields: [investorId], references: [id])
-  pitch        Pitch         @relation(fields: [pitchId], references: [id])
-  negotiation  Negotiation?
+  investor     User         @relation("InvestorInterests", fields: [investorId], references: [id])
+  pitch        Pitch        @relation(fields: [pitchId], references: [id])
+  negotiation  Negotiation? @relation(fields: [negotiationId], references: [id])
 
-  // One investor can only have one pending interest per pitch
+  // One investor gets one interest (one seat) per pitch
   @@unique([pitchId, investorId])
   @@index([pitchId, status])
   @@index([investorId, status])
+  @@index([negotiationId])
   @@map("interests")
 }
 
+// A Negotiation is the group discussion room for ONE pitch.
+// Multiple investors join via their Interest rows (Interest.negotiationId).
 model Negotiation {
-  id              String            @id @default(uuid())
-  pitchId         String            @map("pitch_id")
-  investorId      String            @map("investor_id")
-  startupId       String            @map("startup_id")
-  interestId      String            @unique @map("interest_id")
-  status          NegotiationStatus @default(open)
-  finalAmount     BigInt?           @map("final_amount")
-  finalEquityPct  Decimal?          @map("final_equity_pct") @db.Decimal(5, 2)
-  finalTermsNote  String?           @map("final_terms_note")
-  openedAt        DateTime          @default(now()) @map("opened_at")
-  concludedAt     DateTime?         @map("concluded_at")
+  id                 String            @id @default(uuid())
+  pitchId            String            @unique @map("pitch_id")
+  startupId          String            @map("startup_id")
+  acceptedInvestorId String?           @map("accepted_investor_id")
+  status             NegotiationStatus @default(open)
+  finalAmount        BigInt?           @map("final_amount")
+  finalEquityPct     Decimal?          @map("final_equity_pct") @db.Decimal(5, 2)
+  finalTermsNote     String?           @map("final_terms_note")
+  openedAt           DateTime          @default(now()) @map("opened_at")
+  concludedAt        DateTime?         @map("concluded_at")
 
   // Relations
-  pitch    Pitch    @relation(fields: [pitchId], references: [id])
-  investor User     @relation("InvestorNegotiations", fields: [investorId], references: [id])
-  startup  User     @relation("StartupNegotiations", fields: [startupId], references: [id])
-  interest Interest @relation(fields: [interestId], references: [id])
-  messages Message[]
+  pitch            Pitch      @relation(fields: [pitchId], references: [id])
+  startup          User       @relation("StartupNegotiations", fields: [startupId], references: [id])
+  acceptedInvestor User?      @relation("AcceptedNegotiations", fields: [acceptedInvestorId], references: [id])
+  interests        Interest[]
+  messages         Message[]
 
   @@index([status])
-  @@index([pitchId])
   @@map("negotiations")
 }
 

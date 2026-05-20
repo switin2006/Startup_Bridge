@@ -1,0 +1,145 @@
+STARTUPBRIDGE — 12 PHASE PLAN
+Each phase = 1 to 2 days
+============================================================
+
+PHASE 1 — Auth Backend
+- src/prisma.js
+- src/middleware/requireAuth.js
+- src/middleware/requireRole.js
+- src/middleware/requireApproved.js
+- src/middleware/errorHandler.js
+- src/routes/auth.js (POST /register, POST /login, GET /me)
+- Wire routes into server.js
+- Test with Thunder Client / Postman
+
+PHASE 2 — Auth Frontend
+- src/context/AuthContext.jsx (login, logout, current user)
+- src/api.js (axios instance + JWT interceptor)
+- src/App.jsx (React Router setup, protected routes)
+- src/components/Layout.jsx, Navbar.jsx, Sidebar.jsx
+- src/pages/public/Login.jsx
+- src/pages/public/Register.jsx
+- src/pages/public/Pending.jsx (awaiting admin approval screen)
+- Test: register → pending screen, login → dashboard
+
+PHASE 3 — Pitch Backend
+- src/routes/pitches.js
+  POST   /api/pitches         (create draft)
+  GET    /api/pitches         (investor feed — cards only)
+  GET    /api/pitches/mine    (startup's own pitches)
+  GET    /api/pitches/:id     (full detail — RBAC gated)
+  PUT    /api/pitches/:id     (edit)
+  POST   /api/pitches/:id/publish
+  POST   /api/pitches/:id/withdraw
+
+PHASE 4 — Pitch Frontend
+- src/pages/startup/CreatePitch.jsx
+- src/pages/startup/EditPitch.jsx
+- src/pages/startup/Dashboard.jsx
+- src/components/PitchCard.jsx
+- src/pages/investor/Feed.jsx (browse published pitches)
+- src/pages/investor/PitchView.jsx (full detail after acceptance)
+
+PHASE 5 — Interest Backend (GROUP NEGOTIATION)
+- src/routes/interests.js
+  POST /api/interests                (investor expresses interest:
+                                      find-or-create the pitch's group room,
+                                      link the Interest to it — $transaction)
+  GET  /api/interests/received       (startup sees incoming)
+  GET  /api/interests/mine           (investor sees their own)
+  PUT  /api/interests/:id/accept     (startup picks the WINNER — $transaction:
+                                      this Interest -> accepted, all other
+                                      pending interests in the room -> denied,
+                                      Negotiation.accepted_investor_id set,
+                                      status -> pending_admin_close,
+                                      Pitch -> in_negotiation. body carries
+                                      final_amount/final_equity_pct/note)
+  PUT  /api/interests/:id/deny       (remove one investor from the room)
+- Guard: investor may hold only ONE pending interest at a time
+- Guard: startup cannot create a new pitch while a negotiation is active
+
+PHASE 6 — Interest Frontend
+- src/pages/investor/MyInterests.jsx
+- src/pages/startup/InterestsReceived.jsx (grouped by pitch — the room roster)
+- Interest form on PitchView page
+- "Pick this investor" (accept) / Deny buttons on InterestsReceived
+
+PHASE 7 — Negotiation + Message Backend (GROUP ROOM)
+- src/routes/negotiations.js
+  GET  /api/negotiations/:id           (room + all participant interests + msgs)
+  GET  /api/negotiations/mine          (rooms the current user is in)
+  PUT  /api/negotiations/:id/conclude  (admin only)
+  PUT  /api/negotiations/:id/fail      (admin only)
+  (no propose-conclusion route — final terms ride with interest accept)
+- src/routes/messages.js
+  GET  /api/messages/:negotiation_id?since=<timestamp>
+  POST /api/messages
+  auth: pitch's startup OR an investor with an Interest in the room OR admin
+
+PHASE 8 — Chat Frontend (hardest frontend piece)
+- src/components/ChatBox.jsx
+  GROUP chat — many participants, label each message with sender name
+  polls GET /api/messages every 5 seconds
+  optimistic send
+  auto scroll to bottom
+  pauses when tab is hidden
+- src/pages/shared/Negotiation.jsx
+  pitch summary + participant roster + ChatBox
+  startup-only: "pick winner" panel
+- src/pages/startup/MyNegotiations.jsx
+- src/pages/investor/MyNegotiations.jsx
+
+PHASE 9 — Notifications Backend + Frontend
+- src/lib/notify.js (createNotification helper)
+- src/routes/notifications.js
+  GET /api/notifications
+  PUT /api/notifications/:id/read
+  PUT /api/notifications/read-all
+- src/components/NotificationBell.jsx
+  polls every 30 seconds
+  badge count
+  click marks read + navigates
+
+PHASE 10 — File Upload Backend + Frontend
+- src/lib/upload.js (multer config + magic byte check)
+- src/routes/files.js
+  POST /api/files    (upload PDF)
+  GET  /api/files/:id (serve — auth checked)
+- Wire deck upload into CreatePitch form
+- Wire deck view into PitchView page
+
+PHASE 11 — Admin Panel
+- src/routes/admin.js
+  GET /api/admin/users?status=pending
+  PUT /api/admin/users/:id/approve
+  PUT /api/admin/users/:id/suspend
+  GET /api/admin/negotiations
+  GET /api/admin/negotiations/:id/messages
+  GET /api/admin/negotiations/pending-close
+- src/pages/admin/Users.jsx      (approve / suspend)
+- src/pages/admin/Negotiations.jsx
+- src/pages/admin/Messages.jsx   (read all chat in any negotiation)
+
+PHASE 12 — Polish + Deployment
+- Loading states on every page
+- Error states on every page
+- Mobile sidebar collapse
+- Update docker-compose.yml to include backend + frontend services
+- Deploy to VPS with Docker
+- Final manual test of full happy path
+
+============================================================
+HAPPY PATH TEST (do this at end of Phase 12)
+1.  Register as startup → pending screen
+2.  Admin approves → startup gets notification
+3.  Startup creates pitch + uploads deck → publishes
+4.  Investors see pitch card in feed
+5.  TWO investors express interest → both land in ONE group room
+6.  Startup gets notifications → opens the group room
+7.  Startup + both investors chat in the group room (messages in 5s)
+8.  Startup picks ONE investor (accept) with final terms
+9.  Winner notified (accepted), other investor notified (denied)
+10. Admin sees pending-close queue → clicks conclude
+11. Winner + startup get notification → pitch is closed
+12. Admin reads full group chat via admin messages view
+============================================================
