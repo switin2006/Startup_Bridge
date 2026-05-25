@@ -1,10 +1,12 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import authRoutes from './routes/auth.js'
+import { errorHandler } from './middleware/errorHandler.js'
 
 dotenv.config()
 
-// Validate required env vars at startup
+// Validate required env vars at startup — fail fast if missing
 if (!process.env.JWT_SECRET) {
   console.error('ERROR: JWT_SECRET is missing in .env')
   process.exit(1)
@@ -21,14 +23,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
-// Routes (added sprint by sprint)
-// app.use('/api/auth', authRoutes)
+// Routes (added phase by phase)
+app.use('/api/auth', authRoutes)
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err)
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' })
-})
+// Error handler — MUST be last
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 4000
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`))
