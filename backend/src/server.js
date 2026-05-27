@@ -1,7 +1,15 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import fs from 'fs'
+import path from 'path'
 import authRoutes from './routes/auth.js'
+import pitchRoutes from './routes/pitches.js'
+import interestRoutes from './routes/interests.js'
+import investorPitchRoutes from './routes/investor/pitches.js'
+import investorInterestRoutes from './routes/investor/interests.js'
+import fileRoutes from './routes/files.js'
+import notificationRoutes from './routes/notifications.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
 dotenv.config()
@@ -10,6 +18,12 @@ dotenv.config()
 if (!process.env.JWT_SECRET) {
   console.error('ERROR: JWT_SECRET is missing in .env')
   process.exit(1)
+}
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), 'uploads')
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
 const app = express()
@@ -25,6 +39,12 @@ app.get('/api/health', (req, res) => {
 
 // Routes (added phase by phase)
 app.use('/api/auth', authRoutes)
+app.use('/api/pitches', pitchRoutes)
+app.use('/api/interests', interestRoutes)
+app.use('/api/investor/pitches', investorPitchRoutes)
+app.use('/api/investor/interests', investorInterestRoutes)
+app.use('/api/files', fileRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 // Error handler — MUST be last
 app.use(errorHandler)

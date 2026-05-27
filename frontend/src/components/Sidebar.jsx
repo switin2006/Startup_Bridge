@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-// Left navigation. For now only Dashboard exists — later phases add
-// role-specific links (pitches, interests, negotiations, admin).
+// Left navigation — role-conditional links.
+// Investor: Feed, My Interests
+// Other roles: placeholder Dashboard link (their pages added by other devs)
 export default function Sidebar() {
   const { user } = useAuth()
 
@@ -16,10 +17,24 @@ export default function Sidebar() {
   return (
     <aside className="w-56 bg-white border-r border-gray-200 p-4">
       <nav className="space-y-1">
-        <NavLink to="/dashboard" className={linkClass}>
-          Dashboard
-        </NavLink>
-        {/* More links added in later phases */}
+        {/* Investor links */}
+        {user?.role === 'investor' && (
+          <>
+            <NavLink to="/investor/feed" className={linkClass}>
+              Browse Pitches
+            </NavLink>
+            <NavLink to="/investor/interests" className={linkClass}>
+              My Interests
+            </NavLink>
+          </>
+        )}
+
+        {/* Other roles — placeholder until their devs add pages */}
+        {user?.role !== 'investor' && (
+          <NavLink to="/dashboard" className={linkClass}>
+            Dashboard
+          </NavLink>
+        )}
       </nav>
       <p className="mt-6 px-4 text-xs text-gray-400">Signed in as {user?.role}</p>
     </aside>
