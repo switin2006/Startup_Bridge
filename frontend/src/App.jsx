@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard'
 import Feed from './pages/investor/Feed'
 import PitchView from './pages/investor/PitchView'
 import MyInterests from './pages/investor/MyInterests'
+import InvestorNegotiations from './pages/investor/Negotiations'
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -94,6 +95,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MyInterests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/investor/negotiations"
+            element={
+              <ProtectedRoute>
+                <InvestorNegotiations />
               </ProtectedRoute>
             }
           />

@@ -28,6 +28,7 @@ export default function Sidebar() {
           <>
             <NavLink to="/investor/feed" className={linkClass}>Browse Pitches</NavLink>
             <NavLink to="/investor/interests" className={linkClass}>My Interests</NavLink>
+            <NavLink to="/investor/negotiations" className={linkClass}>Negotiations</NavLink>
           </>
         )}
         {user?.role === 'startup' && (
