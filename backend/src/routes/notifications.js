@@ -3,10 +3,11 @@
 import express from 'express'
 import prisma from '../prisma.js'
 import { requireAuth } from '../middleware/requireAuth.js'
+import { requireApproved } from '../middleware/requireApproved.js'
 
 const router = express.Router()
 
-router.use(requireAuth)
+router.use(requireAuth, requireApproved)
 
 // ────────────────────────────────────────────────────────────────
 // GET /api/notifications?unread=true — current user's notifications

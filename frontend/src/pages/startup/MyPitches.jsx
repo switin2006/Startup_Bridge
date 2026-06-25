@@ -58,7 +58,7 @@ export default function MyPitches() {
     setActionLoading(pitchId)
     try {
       // POST to /api/pitches/:id/publish
-      await api.post(`/pitches/${pitchId}/publish`)
+      await api.post(`/startup/pitches/${pitchId}/publish`)
       alert('Pitch published successfully!')
       fetchPitches()
     } catch (err) {
@@ -75,7 +75,7 @@ export default function MyPitches() {
     setActionLoading(pitchId)
     try {
       // POST to /api/pitches/:id/withdraw
-      await api.post(`/pitches/${pitchId}/withdraw`)
+      await api.post(`/startup/pitches/${pitchId}/withdraw`)
       alert('Pitch withdrawn successfully.')
       fetchPitches()
     } catch (err) {

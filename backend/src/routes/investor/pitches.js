@@ -62,22 +62,26 @@ router.get('/:id', async (req, res, next) => {
     })
 
     if (!pitch) return res.status(404).json({ error: 'Pitch not found' })
+    // Non-published pitches are invisible to investors (draft, in_negotiation, closed, withdrawn)
+    if (pitch.status !== 'published') return res.status(404).json({ error: 'Pitch not found' })
 
     const interest = await prisma.interest.findUnique({
-      where: {
-        pitchId_investorId: {
-          pitchId: pitch.id,
-          investorId: req.user.id,
-        },
-      },
+      where: { pitchId_investorId: { pitchId: pitch.id, investorId: req.user.id } },
     })
 
-    // Always return full pitch detail — investor needs to read everything before deciding.
-    // hasInterest controls whether the "Express Interest" form is shown in the UI.
+    // Full detail only if the investor has expressed interest — otherwise card-level only
+    if (!interest) {
+      return res.json({
+        pitch: { id: pitch.id, title: pitch.title, domain: pitch.domain, fundingAmount: pitch.fundingAmount, equityPercent: pitch.equityPercent, publishedAt: pitch.publishedAt, startup: pitch.startup },
+        hasInterest: false,
+        interestStatus: null,
+      })
+    }
+
     return res.json({
-      pitch: { ...pitch, fundingAmount: pitch.fundingAmount.toString() },
-      hasInterest: !!interest,
-      interestStatus: interest?.status || null,
+      pitch,
+      hasInterest: true,
+      interestStatus: interest.status,
     })
   } catch (err) {
     next(err)

@@ -8,9 +8,7 @@ import { createNotification } from '../lib/notify.js'
 
 const router = express.Router()
 
-router.use(requireAuth)
-router.use(requireRole(['startup']))
-router.use(requireApproved)
+router.use(requireAuth, requireApproved, requireRole(['startup']))
 
 // Helper to serialize BigInt
 function serializePitch(pitch) {
@@ -254,6 +252,54 @@ router.delete('/pitches/:id', async (req, res, next) => {
   } catch (err) {
     next(err)
   }
+})
+
+// ======================
+// PUBLISH PITCH
+// ======================
+router.post('/pitches/:id/publish', async (req, res, next) => {
+  try {
+    const pitch = await prisma.pitch.findFirst({ where: { id: req.params.id, startupId: req.user.id } })
+    if (!pitch) return res.status(404).json({ error: 'Pitch not found' })
+    if (pitch.status !== 'draft') return res.status(409).json({ error: 'Only draft pitches can be published' })
+    const updated = await prisma.pitch.update({
+      where: { id: pitch.id },
+      data: { status: 'published', publishedAt: new Date() },
+    })
+    res.json(updated)
+  } catch (err) { next(err) }
+})
+
+// ======================
+// WITHDRAW PITCH
+// ======================
+router.post('/pitches/:id/withdraw', async (req, res, next) => {
+  try {
+    const pitch = await prisma.pitch.findFirst({
+      where: { id: req.params.id, startupId: req.user.id },
+      include: { interests: { where: { status: 'pending' }, select: { id: true, investorId: true } } },
+    })
+    if (!pitch) return res.status(404).json({ error: 'Pitch not found' })
+    if (!['draft', 'published'].includes(pitch.status)) {
+      return res.status(409).json({ error: 'Cannot withdraw a pitch already in negotiation or closed' })
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.pitch.update({ where: { id: pitch.id }, data: { status: 'withdrawn' } })
+      if (pitch.interests.length > 0) {
+        await tx.interest.updateMany({
+          where: { pitchId: pitch.id, status: 'pending' },
+          data: { status: 'denied', respondedAt: new Date() },
+        })
+      }
+    })
+    for (const interest of pitch.interests) {
+      await createNotification(
+        interest.investorId, 'interest_denied', 'Pitch Withdrawn',
+        `The pitch "${pitch.title}" has been withdrawn.`, '/investor/interests'
+      )
+    }
+    res.json({ message: 'Pitch withdrawn' })
+  } catch (err) { next(err) }
 })
 
 // ======================

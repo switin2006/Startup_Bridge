@@ -92,7 +92,7 @@ router.get('/:id', async (req, res, next) => {
       allowed = negotiation.startupId === req.user.id
     }
     if (!allowed && req.user.role === 'investor') {
-      allowed = negotiation.interests.some(i => i.investorId === req.user.id)
+      allowed = negotiation.interests.some(i => i.investorId === req.user.id && i.status !== 'denied')
     }
 
     if (!allowed) {

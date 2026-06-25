@@ -73,14 +73,14 @@ router.get('/:id', async (req, res, next) => {
     // Admin can access any file
     if (!allowed && req.user.role === 'admin') allowed = true
 
-    // Investor with interest can access the pitch deck
+    // Investor with an active interest can access the pitch deck
     if (!allowed && req.user.role === 'investor' && file.scope === 'pitch_deck') {
-      // Find which pitch uses this deck
-      const pitch = await prisma.pitch.findFirst({
-        where: { deckFileId: file.id },
-      })
-      if (pitch && pitch.status === 'published') {
-        allowed = true
+      const pitch = await prisma.pitch.findFirst({ where: { deckFileId: file.id } })
+      if (pitch) {
+        const interest = await prisma.interest.findUnique({
+          where: { pitchId_investorId: { pitchId: pitch.id, investorId: req.user.id } },
+        })
+        if (interest && interest.status !== 'denied') allowed = true
       }
     }
 
