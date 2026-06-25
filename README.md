@@ -2,6 +2,8 @@
 
 A platform connecting startup founders with investors, mediated by an admin.
 
+**Live Demo:** [https://startup-bridge-frontend.onrender.com/](https://startup-bridge-frontend.onrender.com/)
+
 **Stack:** React 18 + Vite + Tailwind CSS | Express 4 + Prisma 5 | PostgreSQL 16 | JWT auth
 
 ---
