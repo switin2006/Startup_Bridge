@@ -93,8 +93,27 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'File not found on disk' })
     }
 
-    res.setHeader('Content-Type', file.mime)
-    res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`)
+    // ── XSS-safe response headers ──────────────────────────────
+    // Only serve known-safe MIME types inline; everything else
+    // becomes application/octet-stream (forces download).
+    const SAFE_MIMES = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/gif',
+      'image/webp',
+    ])
+    const safeMime = SAFE_MIMES.has(file.mime) ? file.mime : 'application/octet-stream'
+
+    // Sanitize original filename — strip anything outside [a-zA-Z0-9._-]
+    const safeName = file.originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
+
+    // PDFs may open inline; everything else must download
+    const disposition = safeMime === 'application/pdf' ? 'inline' : 'attachment'
+
+    res.setHeader('Content-Type', safeMime)
+    res.setHeader('Content-Disposition', `${disposition}; filename="${safeName}"`)
+    res.setHeader('X-Content-Type-Options', 'nosniff')
     fs.createReadStream(filePath).pipe(res)
   } catch (err) {
     next(err)

@@ -17,10 +17,27 @@ const storage = multer.diskStorage({
   },
 })
 
-// 20 MB file-size cap
+// MIME types that could execute in-browser — reject at upload time
+const BLOCKED_MIMES = new Set([
+  'text/html',
+  'application/xhtml+xml',
+  'application/javascript',
+  'text/javascript',
+  'image/svg+xml',   // SVG can contain inline <script>
+  'application/xml',
+  'text/xml',
+])
+
+// 20 MB file-size cap + MIME allowlist
 export const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (BLOCKED_MIMES.has(file.mimetype)) {
+      return cb(new Error('This file type is not allowed'), false)
+    }
+    cb(null, true)
+  },
 })
 
 // Magic-byte check — confirm the file is actually a PDF even if renamed

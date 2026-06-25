@@ -35,7 +35,9 @@ router.get('/', async (req, res, next) => {
       allowed = negotiation.startupId === req.user.id
     }
     if (!allowed && req.user.role === 'investor') {
-      allowed = negotiation.interests.some(i => i.investorId === req.user.id && i.status !== 'denied')
+      allowed = negotiation.interests.some(
+        i => i.investorId === req.user.id && (i.status === 'pending' || i.status === 'accepted')
+      )
     }
 
     if (!allowed) {
@@ -90,7 +92,9 @@ router.post('/', async (req, res, next) => {
       allowed = negotiation.startupId === req.user.id
     }
     if (!allowed && req.user.role === 'investor') {
-      allowed = negotiation.interests.some(i => i.investorId === req.user.id && i.status !== 'denied')
+      allowed = negotiation.interests.some(
+        i => i.investorId === req.user.id && (i.status === 'pending' || i.status === 'accepted')
+      )
     }
 
     if (!allowed) {

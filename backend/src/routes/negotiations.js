@@ -38,7 +38,10 @@ router.get('/mine', async (req, res, next) => {
     } else if (req.user.role === 'investor') {
       where = {
         interests: {
-          some: { investorId: userId }
+          some: {
+            investorId: userId,
+            status: { in: ['pending', 'accepted'] }
+          }
         }
       }
     } else if (req.user.role !== 'admin') {
@@ -92,7 +95,9 @@ router.get('/:id', async (req, res, next) => {
       allowed = negotiation.startupId === req.user.id
     }
     if (!allowed && req.user.role === 'investor') {
-      allowed = negotiation.interests.some(i => i.investorId === req.user.id && i.status !== 'denied')
+      allowed = negotiation.interests.some(
+        i => i.investorId === req.user.id && (i.status === 'pending' || i.status === 'accepted')
+      )
     }
 
     if (!allowed) {

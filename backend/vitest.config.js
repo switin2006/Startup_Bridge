@@ -3,6 +3,10 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
+    // Only run the vitest suite in test/. The files in tests/ are standalone
+    // node integration scripts (run with `node tests/<file>` against a live
+    // server) — not vitest tests — and crash the runner if picked up here.
+    include: ['test/**/*.test.js'],
     // These let the app + middleware boot without a real .env. The validation
     // and middleware tests never touch the database, so a dummy URL is fine.
     env: {

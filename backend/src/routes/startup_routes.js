@@ -1,10 +1,33 @@
 import express from 'express'
+import { z } from 'zod'
 import prisma from '../prisma.js'
 
 import { requireAuth } from '../middleware/requireAuth.js'
 import { requireRole } from '../middleware/requireRole.js'
 import { requireApproved } from '../middleware/requireApproved.js'
 import { createNotification } from '../lib/notify.js'
+
+// ────────────────────────────────────────────────────────────────
+// Zod schemas
+// ────────────────────────────────────────────────────────────────
+const acceptInterestSchema = z.object({
+  finalAmount: z.union([
+    z.string().regex(/^\d+$/, 'finalAmount must be a numeric string'),
+    z.number().int().positive()
+  ]).optional().refine(
+    val => val === undefined || BigInt(val) > 0n,
+    { message: 'finalAmount must be a positive number' }
+  ),
+  finalEquityPct: z.number({ coerce: true })
+    .gt(0, 'finalEquityPct must be greater than 0')
+    .lte(100, 'finalEquityPct must be at most 100')
+    .optional(),
+  finalTermsNote: z.string().max(2000, 'finalTermsNote cannot exceed 2000 characters').optional()
+})
+
+const denyInterestSchema = z.object({
+  reason: z.string().max(500).optional()
+})
 
 const router = express.Router()
 
@@ -85,6 +108,17 @@ router.post('/pitches', async (req, res, next) => {
 
     if (!title || !problem || !solution || !fundingAmount || !equityPercent || !domain) {
       return res.status(400).json({ error: 'title, problem, solution, fundingAmount, equityPercent, and domain are required' })
+    }
+
+    // deckFileId ownership check: file must belong to this user and be a pitch_deck
+    if (deckFileId) {
+      const deckFile = await prisma.file.findUnique({ where: { id: deckFileId } })
+      if (!deckFile || deckFile.ownerUserId !== startupId) {
+        return res.status(403).json({ error: 'You do not own this file' })
+      }
+      if (deckFile.scope !== 'pitch_deck') {
+        return res.status(400).json({ error: 'File must be a pitch_deck upload' })
+      }
     }
 
     // Business rule: no new pitch while an active negotiation exists
@@ -204,6 +238,17 @@ router.put('/pitches/:id', async (req, res, next) => {
 
     const { title, problem, solution, fundingAmount, equityPercent, domain, deckFileId } = req.body
 
+    // deckFileId ownership check: file must belong to this user and be a pitch_deck
+    if (deckFileId) {
+      const deckFile = await prisma.file.findUnique({ where: { id: deckFileId } })
+      if (!deckFile || deckFile.ownerUserId !== req.user.id) {
+        return res.status(403).json({ error: 'You do not own this file' })
+      }
+      if (deckFile.scope !== 'pitch_deck') {
+        return res.status(400).json({ error: 'File must be a pitch_deck upload' })
+      }
+    }
+
     const dataToUpdate = {}
     if (title !== undefined) dataToUpdate.title = title
     if (problem !== undefined) dataToUpdate.problem = problem
@@ -307,6 +352,15 @@ router.post('/pitches/:id/withdraw', async (req, res, next) => {
 // ======================
 router.post('/interests/:id/accept', async (req, res, next) => {
   try {
+    // Zod validation with range checks
+    const parsed = acceptInterestSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message }))
+      })
+    }
+
     const interest = await prisma.interest.findUnique({
       where: { id: req.params.id },
       include: { pitch: true }
@@ -320,7 +374,7 @@ router.post('/interests/:id/accept', async (req, res, next) => {
       return res.status(409).json({ error: 'This interest has already been responded to' })
     }
 
-    const { finalAmount, finalEquityPct, finalTermsNote } = req.body
+    const { finalAmount, finalEquityPct, finalTermsNote } = parsed.data
 
     // Perform transaction matching the group negotiation model (Phase 5)
     const result = await prisma.$transaction(async (tx) => {
@@ -406,6 +460,15 @@ router.post('/interests/:id/accept', async (req, res, next) => {
 // ======================
 router.post('/interests/:id/deny', async (req, res, next) => {
   try {
+    // Zod validation
+    const parsed = denyInterestSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message }))
+      })
+    }
+
     const interest = await prisma.interest.findUnique({
       where: { id: req.params.id },
       include: { pitch: true }
